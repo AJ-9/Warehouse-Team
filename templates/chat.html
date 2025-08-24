@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+
+{% block title %}Чат - {{ room }} - PESCO/CC7 WAREHOUSE TEAM{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5><i class="fas fa-comments"></i> Чат: {{ room }}</h5>
+                <span class="badge bg-light text-dark" id="onlineCount">Простой чат</span>
+            </div>
+            <div class="card-body" style="height: 500px; overflow-y: auto;" id="chatMessages">
+                {% for message in messages %}
+                <div class="message mb-3">
+                    <div class="d-flex align-items-start">
+                        <div class="flex-shrink-0">
+                            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                {{ message.sender_name[0].upper() if message.sender_name else 'U' }}
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <strong>{{ message.sender_name or 'Неизвестный' }}</strong>
+                                <small class="text-muted">{{ message.timestamp[:16].replace('T', ' ') }}</small>
+                            </div>
+                            <div class="message-content">
+                                {{ message.content }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="card-footer">
+                <form id="messageForm" class="d-flex">
+                    <input type="text" class="form-control me-2" id="messageInput" placeholder="Введите сообщение..." autocomplete="off">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card shadow">
+            <div class="card-header bg-info text-white">
+                <h5><i class="fas fa-users"></i> Участники</h5>
+            </div>
+            <div class="card-body">
+                <div id="participantsList">
+                    <p class="text-muted">Загрузка участников...</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card shadow mt-3">
+            <div class="card-header bg-success text-white">
+                <h5><i class="fas fa-tasks"></i> Быстрые задачи склада</h5>
+            </div>
+            <div class="card-body">
+                                    <button class="btn btn-outline-success w-100 mb-2" data-bs-toggle="modal" data-bs-target="#quickTaskModal">
+                        <i class="fas fa-plus"></i> Создать задачу склада
+                    </button>
+                <button class="btn btn-outline-info w-100 mb-2" onclick="showTaskList()">
+                    <i class="fas fa-list"></i> Мои задачи
+                </button>
+                <button class="btn btn-outline-warning w-100" onclick="showReminders()">
+                    <i class="fas fa-bell"></i> Напоминания
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно быстрой задачи -->
+<div class="modal fade" id="quickTaskModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Быстрое создание задачи склада</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="quickTaskForm">
+                    <div class="mb-3">
+                        <label for="quickTaskTitle" class="form-label">Название задачи склада</label>
+                        <input type="text" class="form-control" id="quickTaskTitle" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="quickTaskDueDate" class="form-label">Срок выполнения</label>
+                        <input type="datetime-local" class="form-control" id="quickTaskDueDate" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-success" onclick="createQuickTask()">Создать</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const room = '{{ room }}';
+
+// Загрузка участников
+loadParticipants();
+
+// Обработка формы отправки сообщения
+document.getElementById('messageForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const messageInput = document.getElementById('messageInput');
+    const message = messageInput.value.trim();
+    
+    if (message) {
+        sendMessage(message);
+        messageInput.value = '';
+    }
+});
+
+// Отправка сообщения
+function sendMessage(message) {
+    fetch('/send_message', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            message: message,
+            room: room
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Обновляем сообщения
+            loadMessages();
+        } else {
+            alert('Ошибка при отправке сообщения');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Ошибка при отправке сообщения');
+    });
+}
+
+// Загрузка сообщений
+function loadMessages() {
+    fetch(`/get_messages/${room}`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            displayMessages(data.messages);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+    });
+}
+
+// Отображение сообщений
+function displayMessages(messages) {
+    const chatMessages = document.getElementById('chatMessages');
+    chatMessages.innerHTML = '';
+    
+    messages.forEach(message => {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message mb-3';
+        messageDiv.innerHTML = `
+            <div class="d-flex align-items-start">
+                <div class="flex-shrink-0">
+                    <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                        ${message.sender_name ? message.sender_name[0].toUpperCase() : 'U'}
+                    </div>
+                </div>
+                <div class="flex-grow-1 ms-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <strong>${message.sender_name || 'Неизвестный'}</strong>
+                        <small class="text-muted">${message.timestamp.substring(0, 16).replace('T', ' ')}</small>
+                    </div>
+                    <div class="message-content">
+                        ${message.content}
+                    </div>
+                </div>
+            </div>
+        `;
+        chatMessages.appendChild(messageDiv);
+    });
+    
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+// Загрузка участников
+function loadParticipants() {
+    fetch('/get_users')
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const participantsList = document.getElementById('participantsList');
+            participantsList.innerHTML = '';
+            
+            data.users.forEach(user => {
+                const userDiv = document.createElement('div');
+                userDiv.className = 'd-flex align-items-center mb-2';
+                userDiv.innerHTML = `
+                    <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 30px; height: 30px;">
+                        ${user.username[0].toUpperCase()}
+                    </div>
+                    <span>${user.username}</span>
+                `;
+                participantsList.appendChild(userDiv);
+            });
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+    });
+}
+
+// Создание быстрой задачи
+function createQuickTask() {
+    const title = document.getElementById('quickTaskTitle').value;
+    const dueDate = document.getElementById('quickTaskDueDate').value;
+    
+    if (!title || !dueDate) {
+        alert('Пожалуйста, заполните обязательные поля');
+        return;
+    }
+    
+    fetch('/create_task', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            title: title,
+            description: 'Задача склада создана из чата',
+            due_date: dueDate
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Задача успешно создана!');
+            // Отправляем сообщение в чат о создании задачи
+            sendMessage(`Создана новая задача склада: ${title}`);
+            // Закрываем модальное окно
+            const modal = bootstrap.Modal.getInstance(document.getElementById('quickTaskModal'));
+            modal.hide();
+            // Очищаем форму
+            document.getElementById('quickTaskForm').reset();
+        } else {
+            alert('Ошибка при создании задачи');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Ошибка при создании задачи');
+    });
+}
+
+function showTaskList() {
+    window.location.href = '/tasks';
+}
+
+function showReminders() {
+    alert('Функция напоминаний будет доступна в следующей версии!');
+}
+
+// Автофокус на поле ввода сообщения
+document.getElementById('messageInput').focus();
+
+// Обновляем сообщения каждые 5 секунд
+setInterval(loadMessages, 5000);
+</script>
+{% endblock %}

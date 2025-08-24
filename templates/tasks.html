@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+
+{% block title %}Задачи - PESCO/CC7 WAREHOUSE TEAM{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                <h5><i class="fas fa-tasks"></i> Управление задачами склада</h5>
+                <button class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#createTaskModal">
+                    <i class="fas fa-plus"></i> Новая задача
+                </button>
+            </div>
+            <div class="card-body">
+                <ul class="nav nav-tabs" id="taskTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="my-tasks-tab" data-bs-toggle="tab" data-bs-target="#my-tasks" type="button" role="tab">
+                            <i class="fas fa-user"></i> Мои задачи склада ({{ my_tasks|length }})
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="created-tasks-tab" data-bs-toggle="tab" data-bs-target="#created-tasks" type="button" role="tab">
+                            <i class="fas fa-plus"></i> Созданные мной ({{ created_tasks|length }})
+                        </button>
+                    </li>
+                </ul>
+                
+                <div class="tab-content mt-3" id="taskTabsContent">
+                    <div class="tab-pane fade show active" id="my-tasks" role="tabpanel">
+                        {% if my_tasks %}
+                                                {% for task in my_tasks %}
+                    <div class="card mb-3 border-{{ 'warning' if task.status == 'pending' else 'info' if task.status == 'in_progress' else 'success' }}">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <h6 class="card-title">{{ task.title }}</h6>
+                                    {% if task.description %}
+                                        <p class="card-text text-muted">{{ task.description }}</p>
+                                    {% endif %}
+                                    <div class="d-flex align-items-center">
+                                        <small class="text-muted me-3">
+                                            <i class="fas fa-calendar"></i> {{ task.due_date[:16].replace('T', ' ') }}
+                                        </small>
+                                        <small class="text-muted">
+                                            <i class="fas fa-user"></i> {{ task.creator_name or 'Неизвестный' }}
+                                        </small>
+                                    </div>
+                                </div>
+                                <div class="text-end">
+                                    <span class="badge bg-{{ 'warning' if task.status == 'pending' else 'info' if task.status == 'in_progress' else 'success' }} mb-2">
+                                        {{ task.status }}
+                                    </span>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-primary" onclick="updateTaskStatus('{{ task.id }}', 'in_progress')">
+                                            <i class="fas fa-play"></i>
+                                        </button>
+                                        <button class="btn btn-outline-success" onclick="updateTaskStatus('{{ task.id }}', 'completed')">
+                                            <i class="fas fa-check"></i>
+                                        </button>
+                                        <button class="btn btn-outline-info" onclick="editTask('{{ task.id }}')">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                        {% else %}
+                            <div class="text-center py-4">
+                                <i class="fas fa-tasks fa-3x text-muted mb-3"></i>
+                                <p class="text-muted">У вас пока нет назначенных задач склада</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="tab-pane fade" id="created-tasks" role="tabpanel">
+                        {% if created_tasks %}
+                            {% for task in created_tasks %}
+                            <div class="card mb-3 border-{{ 'warning' if task.status == 'pending' else 'info' if task.status == 'in_progress' else 'success' }}">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div class="flex-grow-1">
+                                            <h6 class="card-title">{{ task.title }}</h6>
+                                            {% if task.description %}
+                                                <p class="card-text text-muted">{{ task.description }}</p>
+                                            {% endif %}
+                                            <div class="d-flex align-items-center">
+                                                <small class="text-muted me-3">
+                                                    <i class="fas fa-calendar"></i> {{ task.due_date.strftime('%d.%m.%Y %H:%M') }}
+                                                </small>
+                                                {% if task.assignee %}
+                                                    <small class="text-muted">
+                                                        <i class="fas fa-user"></i> {{ task.assignee.username }}
+                                                    </small>
+                                                {% else %}
+                                                    <small class="text-warning">
+                                                        <i class="fas fa-exclamation-triangle"></i> Не назначена
+                                                    </small>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        <div class="text-end">
+                                            <span class="badge bg-{{ 'warning' if task.status == 'pending' else 'info' if task.status == 'in_progress' else 'success' }} mb-2">
+                                                {{ task.status }}
+                                            </span>
+                                            <div class="btn-group btn-group-sm">
+                                                <button class="btn btn-outline-info" onclick="editTask({{ task.id }})">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button class="btn btn-outline-danger" onclick="deleteTask({{ task.id }})">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="text-center py-4">
+                                <i class="fas fa-plus fa-3x text-muted mb-3"></i>
+                                <p class="text-muted">Вы пока не создали ни одной задачи склада</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card shadow">
+            <div class="card-header bg-info text-white">
+                <h5><i class="fas fa-chart-bar"></i> Статистика</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6">
+                        <div class="border-end">
+                            <h4 class="text-warning">{{ my_tasks|selectattr('status', 'equalto', 'pending')|list|length }}</h4>
+                            <small class="text-muted">Ожидают</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <h4 class="text-info">{{ my_tasks|selectattr('status', 'equalto', 'in_progress')|list|length }}</h4>
+                        <small class="text-muted">В работе</small>
+                    </div>
+                </div>
+                <hr>
+                <div class="text-center">
+                    <h4 class="text-success">{{ my_tasks|selectattr('status', 'equalto', 'completed')|list|length }}</h4>
+                    <small class="text-muted">Завершено</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card shadow mt-3">
+            <div class="card-header bg-warning text-dark">
+                <h5><i class="fas fa-bell"></i> Напоминания</h5>
+            </div>
+            <div class="card-body">
+                <div id="remindersList">
+                    <p class="text-muted">Загрузка напоминаний...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно создания задачи -->
+<div class="modal fade" id="createTaskModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Создать новую задачу склада</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createTaskForm">
+                    <div class="mb-3">
+                        <label for="taskTitle" class="form-label">Название задачи склада *</label>
+                        <input type="text" class="form-control" id="taskTitle" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="taskDescription" class="form-label">Описание</label>
+                        <textarea class="form-control" id="taskDescription" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="taskDueDate" class="form-label">Срок выполнения *</label>
+                        <input type="datetime-local" class="form-control" id="taskDueDate" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="taskAssignee" class="form-label">Назначить на</label>
+                        <select class="form-control" id="taskAssignee">
+                            <option value="">Выберите пользователя</option>
+                            <!-- Здесь будет список пользователей -->
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-success" onclick="createTask()">Создать</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function createTask() {
+    const title = document.getElementById('taskTitle').value;
+    const description = document.getElementById('taskDescription').value;
+    const dueDate = document.getElementById('taskDueDate').value;
+    const assignee = document.getElementById('taskAssignee').value;
+    
+    if (!title || !dueDate) {
+        alert('Пожалуйста, заполните обязательные поля');
+        return;
+    }
+    
+    fetch('/create_task', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            title: title,
+            description: description,
+            due_date: dueDate,
+            assigned_to: assignee || null
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Задача успешно создана!');
+            location.reload();
+        } else {
+            alert('Ошибка при создании задачи');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Ошибка при создании задачи');
+    });
+}
+
+function updateTaskStatus(taskId, status) {
+    // Здесь будет API для обновления статуса задачи
+    alert(`Статус задачи ${taskId} изменен на ${status}`);
+    // location.reload();
+}
+
+function editTask(taskId) {
+    alert(`Редактирование задачи ${taskId} - функция в разработке`);
+}
+
+function deleteTask(taskId) {
+    if (confirm('Вы уверены, что хотите удалить эту задачу?')) {
+        alert(`Удаление задачи ${taskId} - функция в разработке`);
+        // location.reload();
+    }
+}
+
+// Загрузка напоминаний
+function loadReminders() {
+    const remindersList = document.getElementById('remindersList');
+    remindersList.innerHTML = '<p class="text-muted">Функция напоминаний будет доступна в следующей версии!</p>';
+}
+
+// Загружаем напоминания при загрузке страницы
+document.addEventListener('DOMContentLoaded', function() {
+    loadReminders();
+});
+</script>
+{% endblock %}

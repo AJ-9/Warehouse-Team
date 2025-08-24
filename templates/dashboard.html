@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block title %}Главная - PESCO/CC7 WAREHOUSE TEAM{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h5><i class="fas fa-warehouse"></i> Добро пожаловать в команду склада, {{ current_user.username }}!</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card border-primary">
+                            <div class="card-body text-center">
+                                <i class="fas fa-comments fa-3x text-primary mb-3"></i>
+                                <h5>Командный чат</h5>
+                                <p>Общайтесь с командой склада в реальном времени</p>
+                                <a href="{{ url_for('chat', room='general') }}" class="btn btn-primary">
+                                    <i class="fas fa-comments"></i> Открыть чат
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card border-success">
+                            <div class="card-body text-center">
+                                <i class="fas fa-tasks fa-3x text-success mb-3"></i>
+                                <h5>Задачи склада</h5>
+                                <p>Управляйте задачами и операциями склада</p>
+                                <a href="{{ url_for('tasks') }}" class="btn btn-success">
+                                    <i class="fas fa-tasks"></i> Управление задачами
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card shadow">
+            <div class="card-header bg-info text-white">
+                <h5><i class="fas fa-bell"></i> Мои задачи склада</h5>
+            </div>
+            <div class="card-body">
+                {% if tasks %}
+                    {% for task in tasks[:5] %}
+                    <div class="border-bottom pb-2 mb-2">
+                        <h6 class="mb-1">{{ task.title }}</h6>
+                        <small class="text-muted">
+                            <i class="fas fa-calendar"></i> {{ task.due_date.strftime('%d.%m.%Y %H:%M') }}
+                        </small>
+                        <span class="badge bg-{{ 'warning' if task.status == 'pending' else 'info' if task.status == 'in_progress' else 'success' }} float-end">
+                            {{ task.status }}
+                        </span>
+                    </div>
+                    {% endfor %}
+                    {% if tasks|length > 5 %}
+                        <div class="text-center mt-2">
+                            <a href="{{ url_for('tasks') }}" class="btn btn-sm btn-outline-info">
+                                Показать все ({{ tasks|length }})
+                            </a>
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <p class="text-muted text-center">У вас пока нет назначенных задач склада</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-header bg-warning text-dark">
+                <h5><i class="fas fa-plus"></i> Быстрые действия</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <button class="btn btn-outline-primary w-100 mb-2" data-bs-toggle="modal" data-bs-target="#createTaskModal">
+                            <i class="fas fa-plus"></i> Создать задачу склада
+                        </button>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{{ url_for('chat', room='general') }}" class="btn btn-outline-success w-100 mb-2">
+                            <i class="fas fa-comments"></i> Написать сообщение
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-outline-info w-100 mb-2" onclick="showReminders()">
+                            <i class="fas fa-bell"></i> Напоминания
+                        </button>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{{ url_for('tasks') }}" class="btn btn-outline-warning w-100 mb-2">
+                            <i class="fas fa-chart-bar"></i> Статистика
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно создания задачи -->
+<div class="modal fade" id="createTaskModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Создать новую задачу склада</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createTaskForm">
+                    <div class="mb-3">
+                        <label for="taskTitle" class="form-label">Название задачи склада</label>
+                        <input type="text" class="form-control" id="taskTitle" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="taskDescription" class="form-label">Описание</label>
+                        <textarea class="form-control" id="taskDescription" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="taskDueDate" class="form-label">Срок выполнения</label>
+                        <input type="datetime-local" class="form-control" id="taskDueDate" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" onclick="createTask()">Создать</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function createTask() {
+    const title = document.getElementById('taskTitle').value;
+    const description = document.getElementById('taskDescription').value;
+    const dueDate = document.getElementById('taskDueDate').value;
+    
+    if (!title || !dueDate) {
+        alert('Пожалуйста, заполните обязательные поля');
+        return;
+    }
+    
+    fetch('/create_task', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            title: title,
+            description: description,
+            due_date: dueDate
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Задача успешно создана!');
+            location.reload();
+        } else {
+            alert('Ошибка при создании задачи');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Ошибка при создании задачи');
+    });
+}
+
+function showReminders() {
+    alert('Функция напоминаний будет доступна в следующей версии!');
+}
+</script>
+{% endblock %}
