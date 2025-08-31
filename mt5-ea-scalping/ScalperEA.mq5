@@ -335,7 +335,7 @@ void CloseOnOppositeSignal()
 int OnInit()
 {
     trade.SetDeviationInPoints(InpMaxSlippagePoints);
-    trade.SetExpertMagicNumber((long)InpMagicNumber);
+    trade.SetExpertMagicNumber((ulong)InpMagicNumber);
 
     hMAFast = iMA(_Symbol, _Period, InpFastEMA, 0, MODE_EMA, PRICE_CLOSE);
     hMASlow = iMA(_Symbol, _Period, InpSlowEMA, 0, MODE_EMA, PRICE_CLOSE);
@@ -425,7 +425,7 @@ void OnTick()
 
         if(lot > 0.0)
         {
-            if(trade.Buy(lot, _Symbol, 0.0, sl, tp, "ScalperEA BUY"))
+            if(trade.Buy(lot, _Symbol, 0.0, sl, tp))
                 Print("BUY opened lot=", DoubleToString(lot, 2), " SL=", DoubleToString(sl, _Digits), " TP=", DoubleToString(tp, _Digits));
             else
                 Print("BUY failed retcode=", trade.ResultRetcode());
@@ -456,7 +456,7 @@ void OnTick()
 
         if(lot > 0.0)
         {
-            if(trade.Sell(lot, _Symbol, 0.0, sl, tp, "ScalperEA SELL"))
+            if(trade.Sell(lot, _Symbol, 0.0, sl, tp))
                 Print("SELL opened lot=", DoubleToString(lot, 2), " SL=", DoubleToString(sl, _Digits), " TP=", DoubleToString(tp, _Digits));
             else
                 Print("SELL failed retcode=", trade.ResultRetcode());
