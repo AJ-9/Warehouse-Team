@@ -256,7 +256,7 @@ bool HasOpenPosition(int &posType)
 double CalcLotsByRisk(int sl_points)
 {
     if(!InpUseRiskPercent || sl_points <= 0) return NormalizeLot(InpLots);
-    double balance=0.0; AccountInfoDouble(ACCOUNT_BALANCE, balance);
+    double balance = AccountInfoDouble(ACCOUNT_BALANCE);
     double riskMoney = balance * (InpRiskPercent/100.0);
     double valPerPointPerLot = PointValue();
     if(valPerPointPerLot <= 0.0) return NormalizeLot(InpLots);
