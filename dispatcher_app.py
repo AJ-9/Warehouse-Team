@@ -18,6 +18,9 @@ app = Flask(__name__)
 if os.environ.get('DATABASE_URL'):
     # Продакшен - используем PostgreSQL
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL').replace('postgres://', 'postgresql://')
+elif os.environ.get('RENDER'):
+    # Render.com - используем встроенную SQLite
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///dispatcher.db'
 else:
     # Разработка - используем SQLite
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///dispatcher.db'
