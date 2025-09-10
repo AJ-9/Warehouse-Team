@@ -7,6 +7,10 @@ from io import BytesIO
 import base64
 import secrets
 from functools import wraps
+from dotenv import load_dotenv
+
+# Загружаем переменные окружения
+load_dotenv()
 
 app = Flask(__name__)
 
