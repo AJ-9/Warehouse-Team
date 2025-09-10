@@ -1,15 +1,30 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, date, time
 import os
 import pandas as pd
 from io import BytesIO
 import base64
+import secrets
+from functools import wraps
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key-here'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///dispatcher.db'
+
+# Конфигурация для продакшена и разработки
+if os.environ.get('DATABASE_URL'):
+    # Продакшен - используем PostgreSQL
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL').replace('postgres://', 'postgresql://')
+else:
+    # Разработка - используем SQLite
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///dispatcher.db'
+
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', secrets.token_hex(16))
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Базовые настройки безопасности
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 db = SQLAlchemy(app)
 
@@ -63,12 +78,47 @@ STATUS_OPTIONS = [
     'КПП-6'
 ]
 
+# Простая аутентификация
+ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'dispatcher2024')
+
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get('logged_in'):
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        
+        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+            session['logged_in'] = True
+            flash('Вы успешно вошли в систему!', 'success')
+            return redirect(url_for('index'))
+        else:
+            flash('Неверное имя пользователя или пароль!', 'error')
+    
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.pop('logged_in', None)
+    flash('Вы вышли из системы!', 'info')
+    return redirect(url_for('login'))
+
 @app.route('/')
+@login_required
 def index():
     records = VehicleRecord.query.order_by(VehicleRecord.created_at.desc()).all()
     return render_template('index.html', records=records, status_options=STATUS_OPTIONS)
 
 @app.route('/add', methods=['GET', 'POST'])
+@login_required
 def add_record():
     if request.method == 'POST':
         try:
@@ -115,6 +165,7 @@ def add_record():
     return render_template('add_record.html', status_options=STATUS_OPTIONS)
 
 @app.route('/edit/<int:id>', methods=['GET', 'POST'])
+@login_required
 def edit_record(id):
     record = VehicleRecord.query.get_or_404(id)
     
@@ -164,6 +215,7 @@ def edit_record(id):
     return render_template('edit_record.html', record=record, status_options=STATUS_OPTIONS)
 
 @app.route('/delete/<int:id>')
+@login_required
 def delete_record(id):
     try:
         record = VehicleRecord.query.get_or_404(id)
@@ -177,6 +229,7 @@ def delete_record(id):
     return redirect(url_for('index'))
 
 @app.route('/export_excel')
+@login_required
 def export_excel():
     try:
         records = VehicleRecord.query.all()
@@ -226,6 +279,7 @@ def export_excel():
         return redirect(url_for('index'))
 
 @app.route('/api/records')
+@login_required
 def api_records():
     records = VehicleRecord.query.all()
     return jsonify([record.to_dict() for record in records])
@@ -233,4 +287,9 @@ def api_records():
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    
+    # Настройки для продакшена
+    port = int(os.environ.get('PORT', 5000))
+    debug = os.environ.get('FLASK_ENV') != 'production'
+    
+    app.run(debug=debug, host='0.0.0.0', port=port)
