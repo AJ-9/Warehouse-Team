@@ -1,1 +1,0 @@
-web: gunicorn dispatcher_app:app
